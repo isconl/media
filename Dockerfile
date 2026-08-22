@@ -1,0 +1,25 @@
+# media engine -- portable container build, same shape as every other
+# isconl engine (vault/pulse/scope/circle/spark/hub) on purpose: one
+# Dockerfile pattern to maintain, not seven bespoke ones.
+#
+# node:20-slim (Debian/glibc), not -alpine: @bitwarden/sdk-napi is a native
+# N-API module: musl (alpine) breaks native bindings built against glibc.
+FROM node:20-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+COPY lib ./lib
+COPY src ./src
+
+# Real fail-closed bind guard already in src/server.js: refuses to bind
+# 0.0.0.0 without a configured token. Set MEDIA_TOKEN (or ISCONL_TOKEN) and
+# MEDIA_BIND=0.0.0.0 at runtime -- not baked into the image.
+EXPOSE 8086
+CMD ["node", "src/server.js"]
